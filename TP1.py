@@ -33,7 +33,7 @@ def getNewCj(j, cOld, h):
 #cette fonction "dialte" le filtre h d'un facteur 2
 def extendh(h):
     l = len(h)
-    hNew = np.zeros(2*l)
+    hNew = np.zeros(2*l-1)
     for i in range(l):
         hNew[2*i] = h[i]
     return h
