@@ -2,10 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from astropy.io import fits
+import scipy.misc
 
 hdul = fits.open('ngc2997.fits')
 hdul.info()
 data = hdul[0].data
+scipy.misc.imsave('galaxie.jpg', data)
 
 def getIndices(k, l, j, tailleFiltre, tailleImage):
     listeIndiceLigne = [(k + 2**j * (i1 - tailleFiltre//2) )%tailleImage for i1 in range(tailleFiltre)]
@@ -22,7 +24,7 @@ def getIndicesMirrorConditions(k, l, j, tailleFiltre, tailleImage):
 #ici la condition aux limites est périodique
 def getNewCj(j, cOld, h):
     tailleFiltre = h.shape[0]
-    tailleImage = CijOld.shape[0]
+    tailleImage = cOld.shape[0]
     #cNew est le tableau contenant les nouveaux coefficients
     cNew = np.zeros([tailleImage, tailleImage])    
     #on parcourt l'imgae selon les lignes et les colonnes
@@ -72,7 +74,6 @@ def reconstruct(res):
 #tests pour vérifier que tout marche
 #on défini le filtre
 h = np.array([1, 4, 6, 4, 1])/16
-#test sur un dirac
 
 #test sur la galaxie
 CijOld = data
@@ -81,20 +82,41 @@ getCjWj(j, data, h)
 
 n = 3
 res = getCjWj(n, data, h)
-for image in res:
-    plt.figure()
-    plt.imshow(image, cmap='gray')
-
-
-dirac = np.zeros((256, 256))
-dirac[255//2, 255//2] = 1
-n = 3
-res = getCjWj(n, dirac, h)
+i = 1
 for image in res:
     plt.figure()
     plt.imshow(image, cmap='gray')
     print('moyenne = ',np.mean(image))
+    path = 'galaxie_w_' + str(i) + '.jpg' 
+    scipy.misc.imsave(path, image)
+    i =i +1
 
+#la reconstruction
+imReconst=reconstruct(res)
+plt.figure()
+plt.imshow(imReconst, cmap='gray')
+st=reconstruct(res)
+plt.figure()
+plt.imshow(imReconst, cmap='gray')
+
+plt.figure()
+plt.imshow(data, cmap='gray')
+##################################################################################################""
+#test sur un dirac
+dirac = np.zeros((255, 255))
+dirac[255//2, 255//2] = 1
+n = 3
+res = getCjWj(n, dirac, h)
+i = 1
+for image in res:
+    plt.figure()
+    plt.imshow(image, cmap='gray')
+    print('moyenne = ',np.mean(image))
+    path = 'Dirac_w_' + str(i) + '.jpg' 
+    scipy.misc.imsave(path, image)
+    i =i +1
+
+#la reconstruction
 imReconst=reconstruct(res)
 plt.figure()
 plt.imshow(imReconst, cmap='gray')
@@ -110,12 +132,16 @@ plt.imshow(data, cmap='gray')
 gauss = np.random.normal(0, 1, (256, 256))
 plt.figure()
 plt.imshow(gauss, cmap='gray')
-n = 5
+n = 3
 res = getCjWj(n, gauss, h)
+i = 1
 for image in res:
     plt.figure()
     plt.imshow(image, cmap='gray')
+    path = 'bruit_w_' + str(i) + '.jpg' 
+    scipy.misc.imsave(path, image)
     print('ecart type = ', np.std(image) )
+    i = i+1
     
 #méthode automatique pour calculer le niveau du bruit : méthode de la médiane
 
