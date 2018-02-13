@@ -4,6 +4,11 @@ import matplotlib.image as mpimg
 from astropy.io import fits
 import scipy.misc
 import BERTRAND_MIALON_TP1 as tp1
+from scipy import signal
+
+from scipy.signal import convolve as scipy_convolve
+from astropy.convolution import convolve
+
 
 ###########################################################
 #on charge les données
@@ -72,11 +77,6 @@ sigmasMAD = getDetectionLevels(y, k, nbLevels)
 print("sigmasMAD : ")
 print(sigmasMAD) 
 
-#############################################################
-######################### derive the multiresolution mask
-
-
-
 ####################################################################
 #########Denoising with sparsity constraint in the starlet transform
 ####################################################################
@@ -134,11 +134,6 @@ plt.figure()
 plt.imshow(hardReconst, cmap='gray')
 
 ###########################################################
-############## implémentation du masque multirésolution
-
-# à faire
-
-###########################################################
 ############# comparaison des méthodes
 
 def error(xStar, xHat):
@@ -154,6 +149,23 @@ print(error(xStar, hardReconst))
 ###########################################################
 ############## sparsity based deblurring
 
+####################################################
+# on charge la matrice de convolution
+hdul = fits.open('simu_psf.fits')
+hdul.info()
+H = hdul[0].data
+plt.figure()
+plt.imshow(H, cmap='gray')
+
+###################################
+#on convolue
+
+convol = np.dot(H, xStar)
+plt.figure()
+plt.imshow(convol, cmap='gray')
 
 
+###############################
+# il faut passer en Fourier
+# et faire une multiplication entrée par entrée
 
