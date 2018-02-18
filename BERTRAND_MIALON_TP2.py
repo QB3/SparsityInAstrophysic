@@ -3,8 +3,11 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from astropy.io import fits
 import scipy.misc
-import BERTRAND_MIALON_TP1 as tp1
 from scipy import signal
+import sys
+sys.path.insert(0, '~/Bureau/SparsityEnAstrophysique/SparsityInAstrophysic/')
+import BERTRAND_MIALON_TP1 as tp1
+
 
 from scipy.signal import convolve as scipy_convolve
 from astropy.convolution import convolve
@@ -12,12 +15,12 @@ from astropy.convolution import convolve
 
 ###########################################################
 #on charge les données
-hdul = fits.open('simu_sky.fits')
+hdul = fits.open('qbe/Bureau/SparsityEnAstrophysique/SparsityInAstrophysic/simu_sky.fits')
 hdul.info()
 xStar = hdul[0].data
 plt.figure()
 plt.imshow(xStar, cmap='gray')
-path = "imagesTP2/simu_sky.jpg"
+path = "qbe/Bureau/SparsityEnAstrophysique/SparsityInAstrophysic/imagesTP2/simu_sky.jpg"
 scipy.misc.imsave(path, xStar)
 
 #########################################################################
@@ -27,10 +30,11 @@ scipy.misc.imsave(path, xStar)
 ###########################################################"
 #on ajoute un bruit gaussien
 n = xStar.shape[0]
-y = xStar + np.random.normal(0, 50, (n, n))
+sigma = 500
+y = xStar + np.random.normal(0, sigma, (n, n))
 plt.figure()
 plt.imshow(y, cmap='gray')
-path = "imagesTP2/noisy_simu_sky.jpg"
+path = "qbe/Bureau/SparsityEnAstrophysique/SparsityInAstrophysic/imagesTP2/noisy_simu_sky.jpg"
 scipy.misc.imsave(path, y)
 
 ###########################################################
@@ -38,14 +42,14 @@ scipy.misc.imsave(path, y)
 
 #d'abord on calcule la tranformée en ondelettes
 h = np.array([1, 4, 6, 4, 1])/16
-n = 4 
-res = tp1.getCjWj(n, y, h)
+nbLevel = 4 
+res = tp1.getCjWj(nbLevel, y, h)
 i=1
 for image in res:
     plt.figure()
     plt.imshow(image, cmap='gray')
     print('moyenne = ',np.mean(image))
-    #path = 'galaxie_w_' + str(i) + '.jpg' 
+    #path = 'qbe/Bureau/SparsityEnAstrophysique/SparsityInAstrophysic/galaxie_w_' + str(i) + '.jpg' 
     #scipy.misc.imsave(path, image)
     i =i +1
 
@@ -110,10 +114,10 @@ def reconstruction(y, n, h, k, prior):
         else:
             print("Error this prior is not implemented")
         res.append(sparseW)
-        plt.figure()
+        """plt.figure()
         plt.imshow(w, cmap='gray')
         plt.figure()
-        plt.imshow(sparseW, cmap='gray')
+        plt.imshow(sparseW, cmap='gray')"""
     res.append(cn)
     reconst = tp1.reconstruct(res)
     return reconst
@@ -125,13 +129,23 @@ k=3
 softReconst = reconstruction(y, n, h, k, "softThrd")
 hardReconst = reconstruction(y, n, h, k, "hardThrd")
 plt.figure()
-plt.imshow(y, cmap='gray')
-plt.figure()
+plt.title('image non bruitée', fontsize=18)
 plt.imshow(xStar, cmap='gray')
 plt.figure()
-plt.imshow(softReconst, cmap='gray')
+plt.title('image + bruit additif gaussien', fontsize=18)
+plt.imshow(y, cmap='gray')
+path = 'qbe/Bureau/SparsityEnAstrophysique/SparsityInAstrophysic/imagesTP2/simu_sky_noisy_gauss.jpg'
+scipy.misc.imsave(path, y)
 plt.figure()
+plt.title('image debruitée par softThrd', fontsize=18)
+plt.imshow(softReconst, cmap='gray')
+path = 'qbe/Bureau/SparsityEnAstrophysique/SparsityInAstrophysic/imagesTP2/simu_sky_noisy_gauss_soft_reconst.jpg'
+scipy.misc.imsave(path, softReconst)
+plt.figure()
+plt.title('image debruitée par hardThrd', fontsize=18)
 plt.imshow(hardReconst, cmap='gray')
+path = 'qbe/Bureau/SparsityEnAstrophysique/SparsityInAstrophysic/imagesTP2/simu_sky_noisy_gauss_hard_reconst.jpg'
+scipy.misc.imsave(path, hardReconst)
 
 ###########################################################
 ############# comparaison des méthodes
@@ -140,9 +154,9 @@ def error(xStar, xHat):
     return np.linalg.norm(xStar - xHat) / np.linalg.norm(xStar)
 
 print(error(xStar, xStar))
-print(error(xStar, y))
-print(error(xStar, softReconst))
-print(error(xStar, hardReconst))
+print("erreur(xStar, y) : ", error(xStar, y))
+print("erreur(xStar, softReconst) : ", error(xStar, softReconst))
+print("erreur(xStar, hardReconst) : ", error(xStar, hardReconst))
 #grosse erreur de soft reconstruction
 #à vérifier !
 
@@ -151,21 +165,143 @@ print(error(xStar, hardReconst))
 
 ####################################################
 # on charge la matrice de convolution
-hdul = fits.open('simu_psf.fits')
+"""hdul = fits.open('simu_psf.fits')
 hdul.info()
 H = hdul[0].data
 plt.figure()
 plt.imshow(H, cmap='gray')
-
+"""
 ###################################
 #on convolue
-
+"""
 convol = np.dot(H, xStar)
 plt.figure()
 plt.imshow(convol, cmap='gray')
-
+"""
 
 ###############################
 # il faut passer en Fourier
 # et faire une multiplication entrée par entrée
 
+
+
+######################################################
+##Applications of proximal algorithms to inpainting
+
+#fonction pour créer un masque avec p coefficient nuls choisi au hasard
+def getMask(p, n):
+    mask = np.array([0] * p + [1] * (n**2-p))
+    np.random.shuffle(mask)
+    mask = np.reshape(mask, (n,n))
+    return mask
+
+#on bruite l'image
+n = xStar.shape[0]
+p = 20000
+mask = getMask(p, n)
+sigma = 50
+y = mask * (xStar + np.random.normal(0, sigma, (n,n)))
+plt.figure()
+plt.title('image non bruitée', fontsize=18)
+plt.imshow(xStar, cmap='gray')
+plt.figure()
+plt.title('image bruitée (inpainting)', fontsize=18)
+plt.imshow(y, cmap='gray')
+
+#on calcule la fonction gradient
+def getGrad(alpha, mask, y, nLevel, h):
+    res = tp1.reconstruct(alpha)
+    res = mask * res -y
+    res = mask *res
+    res = tp1.getCjWj(nLevel, res, h)
+    return res
+
+def multiply(alphas, gamma):
+    copyAlphas = list(alphas)
+    cn = copyAlphas.pop()
+    res = []
+    for image in copyAlphas:
+        newElement = gamma*image
+        res.append(newElement)  
+    res.append(cn)
+    return res
+
+def diffLists(liste1, liste2):
+    l1 = len(liste1)
+    l2 = len(liste2)
+    if(l1!=l2):
+        print(" lists do not have the same length")
+    res = []
+    for im1, im2 in zip(liste1, liste2):
+        newElement = im1 - im2
+        res.append(newElement)
+    return res
+
+def add(liste1, liste2):
+    l1 = len(liste1)
+    l2 = len(liste2)
+    if(l1!=l2):
+        print(" lists do not have the same length")
+    res = []
+    for im1, im2 in zip(liste1, liste2):
+        newElement = im1 + im2
+        res.append(newElement)
+    return res    
+
+def softThrdOnList(yn, gamma):
+    liste = list(yn)
+    cn = liste.pop()
+    res = []
+    for image in liste:
+        newElement = softThrd(image, gamma)
+        res.append(newElement)
+    res.append(cn)
+    return res    
+        
+def forwardBackwardInpainting(Niter, alpha0, mask, y, nLevel, h, Lambda):
+    alpha = alpha0
+    gamma =0.1
+    theta = 1.5
+    for i in range(Niter):
+        grad = getGrad(list(alpha), mask, y, nLevel, h)
+        mult = multiply(grad, gamma)
+        yn = diffLists(alpha, mult)
+        DIFF = diffLists(softThrdOnList(yn, gamma * Lambda), alpha)
+        alpha = add(alpha,  multiply(DIFF, theta))
+    return alpha
+
+h = np.array([1, 4, 6, 4, 1])/16
+nLevel = 4
+k=3
+
+softReconst = reconstruction(y, nLevel, h, k, "softThrd")
+alpha0 = tp1.getCjWj(nLevel, image, h)
+Niter = 50
+Lambda = 1
+
+FBalphas = forwardBackwardInpainting(Niter, alpha0, mask, y, nLevel, h, Lambda)
+FBreconst = tp1.reconstruct(FBalphas)
+
+################################################################
+#on plotte les résultats
+plt.figure()
+plt.title('image non bruitée', fontsize=18)
+plt.imshow(xStar, cmap='gray')
+plt.figure()
+plt.title('image bruitée (inpainting)', fontsize=18)
+plt.imshow(y, cmap='gray')
+print(error(xStar, y))
+path = 'qbe/Bureau/SparsityEnAstrophysique/SparsityInAstrophysic/imagesTP2/inpainted_simu_sky.jpg'
+scipy.misc.imsave(path, y)
+plt.figure()
+plt.title('image débruitée par softThrd brutal (inpainting)', fontsize=18)
+plt.imshow(softReconst , cmap='gray')
+print(error(xStar, softReconst))
+path = 'qbe/Bureau/SparsityEnAstrophysique/SparsityInAstrophysic/imagesTP2/soft_reconst_simu_sky.jpg'
+scipy.misc.imsave(path, softReconst)
+plt.figure()
+plt.title('image débruitée par FB (inpainting)', fontsize=18)
+plt.imshow(FBreconst, cmap='gray')
+print(error(FBreconst, softReconst))
+path = 'qbe/Bureau/SparsityEnAstrophysique/SparsityInAstrophysic/imagesTP2/FB_reconst_simu_sky.jpg'
+scipy.misc.imsave(path, FBreconst)
