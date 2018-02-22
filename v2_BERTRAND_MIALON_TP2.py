@@ -191,7 +191,7 @@ def getGradConvol(c ,w , H, Htilde, y, nLevel, h):
     gradx = convol(x, H) - y
     gradx = convol(gradx , Htilde)
     (gradC, gradW) = tp1.Starlet_Forward2D(gradx, J= nLevel)
-    return gradW
+    return (gradC, gradW)
 
 
 def getHtilde(H):
@@ -219,17 +219,17 @@ def forwardBackwardConvol(Niter, x0, H, y, nLevel, Lambda):
     nu = getLipConst(H, Htilde)
     gamma =nu/2
     theta = 1.5
-    xOld = cp.copy(x0)
-    (cOld, wOld ) = tp1.Starlet_Forward2D(xOld, J = nLevel)
+    x = cp.copy(x0)
+    (c, w ) = tp1.Starlet_Forward2D(x, J = nLevel)
     
     for i in range(Niter):
         print("iteration " + str(i+1) + "/" + str(Niter) )
-        gradW = getGradConvol(cOld, wOld, H, Htilde, y, nLevel, h)
-        wHalf = wOld - gamma * gradW
-        print("gradW.shape ", gradW.shape)
-        wNew = wOld + theta  * softThrd(wHalf, gamma * Lambda)
-        wOld = wNew
-    res = tp1.Starlet_Backward2D(cOld, wOld)
+        (gradC, gradW) = getGradConvol(c, w, H, Htilde, y, nLevel, h)
+        wHalf = w - gamma * gradW
+        c = c - gamma * gradC
+        w = w + theta  * (softThrd(wHalf, gamma * Lambda) -w)
+        print("error = ", error(xStar, tp1.Starlet_Backward2D(c,w)))
+    res = tp1.Starlet_Backward2D(c, w)
     return res
 
 
@@ -283,7 +283,7 @@ def getMask(p, n):
 
 #on bruite l'image
 n = xStar.shape[0]
-p = np.floor(n**2/2)
+p = np.floor(n**2/3)
 mask = getMask(p, n)
 sigma = 50
 y = mask * (xStar + np.random.normal(0, sigma, (n,n)))
@@ -298,43 +298,42 @@ plt.imshow(y, cmap='gray')
 #on implemente forward backward pour l'inpainting
 def getGradInpainting(c,w, mask, y, nLevel):  
     x = tp1.Starlet_Backward2D(c, w)
-    res = mask * (x -y)
+    res = mask * (x - y)
     (gradC, gradW) = tp1.Starlet_Forward2D(x = res, J= nLevel)
     return (gradC, gradW)
 
 #on fixe les paramètres
-nLevel = 1
+nLevel = 3
 k=3
 ######################################"
 #on fixe le paramètre Lambda avec le niveau de bruit
 ligney = y.reshape(y.shape[1]**2,)
 yForMAD = ligney[np.where(ligney  !=0)]
 Lambda = getSigmaMAD(yForMAD)
-Lambda = 1
 print("Lambda =  ", Lambda)
 
 x0 = reconstruction(y, nLevel, k, "softThrd")
-
 
 def forwardBackwardInpainting(Niter, x0, mask, y, nLevel, Lambda):
     nu = 1
     gamma =nu/2
     theta = 1.5
-    xOld = cp.copy(y)
+    xOld = cp.copy(x0)
     (c, w ) = tp1.Starlet_Forward2D(x = xOld, J = nLevel)
     
     for i in range(Niter):
         print("iteration " + str(i+1) + "/" + str(Niter) )
         (gradC, gradW) = getGradInpainting(c, w, mask, y, nLevel)
         wHalf = w - gamma * gradW  
-        w = w + theta  * softThrd(wHalf, gamma * Lambda)
-
+        c = c - gamma *gradC
+        w = w + theta  * (softThrd(wHalf, gamma * Lambda) - w)
+        print("error = ", error(xStar, tp1.Starlet_Backward2D(c,w )))
     res = tp1.Starlet_Backward2D(c, w)
     return res
 
-Niter = 20
+Niter = 50
 FBreconst = forwardBackwardInpainting(Niter, x0, mask, y, nLevel, Lambda)
-
+#FBreconst = forwardBackwardInpainting(Niter, FBreconst, mask, y, nLevel, Lambda)
 
 plt.figure()
 plt.title('image non bruitée', fontsize=18)
@@ -342,17 +341,17 @@ plt.imshow(xStar, cmap='gray')
 plt.figure()
 plt.title('image bruitée (inpainting)', fontsize=18)
 plt.imshow(y, cmap='gray')
-path = 'imagesTP2/convol_simu_sky.jpg'
+path = 'imagesTP2/impainting_simu_sky.jpg'
 scipy.misc.imsave(path, y)
 plt.figure()
 plt.title('image débruitée par softThrd brutal (inpainting)', fontsize=18)
 plt.imshow(x0, cmap='gray')
-path = 'imagesTP2/convol_soft_reconst_simu_sky.jpg'
+path = 'imagesTP2/impainting_soft_reconst_simu_sky.jpg'
 scipy.misc.imsave(path, softReconst)
 plt.figure()
 plt.title('image débruitée par FB (inpainting)', fontsize=18)
 plt.imshow(FBreconst, cmap='gray')
-path = 'imagesTP2/convol_FB_reconst_simu_sky.jpg'
+path = 'imagesTP2/impainting_FB_reconst_simu_sky.jpg'
 scipy.misc.imsave(path, FBreconst)
 print("erreur xStar y", error(xStar, y))
 print("erreur xStar softReconst", error(xStar, x0))
