@@ -4,11 +4,6 @@ import matplotlib.image as mpimg
 from astropy.io import fits
 import scipy.misc
 
-hdul = fits.open('ngc2997.fits')
-hdul.info()
-data = hdul[0].data
-scipy.misc.imsave('galaxie.jpg', data)
-
 def getIndices(k, l, j, tailleFiltre, tailleImage):
     listeIndiceLigne = [(k + 2**j * (i1 - tailleFiltre//2) )%tailleImage for i1 in range(tailleFiltre)]
     listeIndiceColonne = [(l + 2**j * (i2 - tailleFiltre//2) )%tailleImage for i2 in range(tailleFiltre)]
@@ -64,11 +59,17 @@ def getCjWj(n, image, h):
 
 #cette fonction reconstruit l'image à partir de la liste des w et h
 def reconstruct(res):
-    imReconst = res.pop()
-    for im in res:
+    copyImReconst = list(res)
+    imReconst = copyImReconst.pop()
+    for im in copyImReconst:
         imReconst = imReconst + im
     return imReconst
 
+"""
+hdul = fits.open('ngc2997.fits')
+hdul.info()
+data = hdul[0].data
+scipy.misc.imsave('galaxie.jpg', data)
 
 #########################################################################################
 #tests pour vérifier que tout marche
@@ -144,7 +145,6 @@ for image in res:
     i = i+1
     
 #méthode automatique pour calculer le niveau du bruit : méthode de la médiane
-
-
+"""
 
 
