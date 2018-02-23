@@ -7,7 +7,6 @@ from scipy import signal
 import Starlet2D as tp1
 import copy as cp  
 from copy import deepcopy as dp
-
 from scipy.signal import convolve as scipy_convolve
 from astropy.convolution import convolve
 
@@ -40,6 +39,14 @@ def getSigmaMAD(w0):
     sigmaMAD = lho * np.median(np.abs(w0 - median))
     return sigmaMAD
 
+
+def getDetectionLevels(y, k, nbLevels):
+    (c,w) = tp1.Starlet_Forward2D(x = y, J=nbLevels)
+    res = np.zeros(nbLevels)
+    for i in range(nbLevels):
+        res[i] = getSigmaMAD(w[:,:,i])
+    return res
+
 ################################################""
 #on teste le MAD
 #d'abord on calcule la tranformée en ondelettes
@@ -71,6 +78,14 @@ def hardThrd(x, gamma):
     bool2 = np.logical_and(bool0, bool1)
     res = x * np.logical_not(bool2)
     return res
+
+def softThrdMultiScale(x, listGamma):
+    copyX = cp.copy(x)
+    d = x.shape[2]
+    for i in range(d):
+        copyX[:,:,i] = softThrd(copyX[:,:,i] , listGamma[i])
+    return copyX
+
 
 ############################################################
 ################# reconstruction à partir de l'image bruitée
@@ -218,7 +233,7 @@ def forwardBackwardConvol(Niter, x0, H, y, nLevel, Lambda):
     Htilde = getHtilde(H)
     nu = getLipConst(H, Htilde)
     gamma =nu/2
-    theta = 1.5
+    theta = 1
     x = cp.copy(x0)
     (c, w ) = tp1.Starlet_Forward2D(x, J = nLevel)
     
@@ -314,26 +329,33 @@ print("Lambda =  ", Lambda)
 
 x0 = reconstruction(y, nLevel, k, "softThrd")
 
-def forwardBackwardInpainting(Niter, x0, mask, y, nLevel, Lambda):
+#la fonction suivante implément l'algorithme forward-backward
+#si multiscale = False l'algorithme renvoie une solution du problème d'optimisation uni-échelle, lambda identique pour toute les échelles
+#si multiscale = True l'algorithme renvoie une solution du problème d'optimisation multi-échelle, lambda différent pour chaque échelle
+def forwardBackwardInpainting(Niter, x0, mask, y, nLevel, Lambda, k=3, multiscale = False):
     nu = 1
-    gamma =nu/2
+    gamma =nu
     theta = 1.5
     xOld = cp.copy(x0)
     (c, w ) = tp1.Starlet_Forward2D(x = xOld, J = nLevel)
+    arrayLambdas = getDetectionLevels(y, k, nLevel)
     
     for i in range(Niter):
         print("iteration " + str(i+1) + "/" + str(Niter) )
         (gradC, gradW) = getGradInpainting(c, w, mask, y, nLevel)
         wHalf = w - gamma * gradW  
         c = c - gamma *gradC
-        w = w + theta  * (softThrd(wHalf, gamma * Lambda) - w)
+        if  (multiscale == False):
+            w = w + theta  * (softThrd(wHalf, gamma * Lambda) - w)
+        else:
+            w = w + theta  * (softThrdMultiScale(wHalf, gamma * arrayLambdas) - w)
         print("error = ", error(xStar, tp1.Starlet_Backward2D(c,w )))
     res = tp1.Starlet_Backward2D(c, w)
     return res
 
-Niter = 50
-FBreconst = forwardBackwardInpainting(Niter, x0, mask, y, nLevel, Lambda)
-#FBreconst = forwardBackwardInpainting(Niter, FBreconst, mask, y, nLevel, Lambda)
+boolMultiscale = False
+Niter = 100
+FBreconst = forwardBackwardInpainting(Niter, x0, mask, y, nLevel, k*Lambda, k = 4, multiscale=boolMultiscale)
 
 plt.figure()
 plt.title('image non bruitée', fontsize=18)
@@ -351,7 +373,7 @@ scipy.misc.imsave(path, softReconst)
 plt.figure()
 plt.title('image débruitée par FB (inpainting)', fontsize=18)
 plt.imshow(FBreconst, cmap='gray')
-path = 'imagesTP2/impainting_FB_reconst_simu_sky.jpg'
+path = 'imagesTP2/impainting_FB_reconst_simu_sky'+str(boolMultiscale) + '.jpg'
 scipy.misc.imsave(path, FBreconst)
 print("erreur xStar y", error(xStar, y))
 print("erreur xStar softReconst", error(xStar, x0))
