@@ -211,11 +211,12 @@ def getGradConvol(c ,w , H, Htilde, y, nLevel, h):
 
 def getHtilde(H):
     n = H.shape[0]
+    resInt = np.zeros((n,n))
     res = np.zeros((n,n))
     for i in range(n):
-        res[:, i] = H[:, n-i-1]
+        resInt[:, i] = H[:, n-i-1]
     for i in range(n):
-        res[i,:] = res [n-i-1,:]
+        res[i,:] = resInt [n-i-1,:]
     return res
 
 def getLipConst(H, Htilde):
@@ -228,26 +229,6 @@ Htilde = getHtilde(H)
 nu = getLipConst(H, Htilde)
 print(nu)
 
-
-def forwardBackwardConvol(Niter, x0, H, y, nLevel, Lambda):
-    Htilde = getHtilde(H)
-    nu = getLipConst(H, Htilde)
-    gamma =nu/2
-    theta = 1
-    x = cp.copy(x0)
-    (c, w ) = tp1.Starlet_Forward2D(x, J = nLevel)
-    
-    for i in range(Niter):
-        print("iteration " + str(i+1) + "/" + str(Niter) )
-        (gradC, gradW) = getGradConvol(c, w, H, Htilde, y, nLevel, h)
-        wHalf = w - gamma * gradW
-        c = c - gamma * gradC
-        w = w + theta  * (softThrd(wHalf, gamma * Lambda) -w)
-        print("error = ", error(xStar, tp1.Starlet_Backward2D(c,w)))
-    res = tp1.Starlet_Backward2D(c, w)
-    return res
-
-
 n = xStar.shape[0]
 nLevel = 3
 k=3
@@ -257,8 +238,33 @@ Lambda = getSigmaMAD(y)
 print("Lambda =  ", Lambda)
 
 x0 = reconstruction(y, nLevel, k, "softThrd")
-Niter = 20
-FBreconst = forwardBackwardConvol(Niter, x0, H, y, nLevel, Lambda)
+
+def forwardBackwardConvol(Niter, x0, H, y, nLevel, Lambda,  k=3, multiscale = False):
+    Htilde = getHtilde(H)
+    nu = getLipConst(H, Htilde)
+    gamma =nu/2
+    gamma = 100
+    theta = 10
+    x = cp.copy(x0)
+    (c, w ) = tp1.Starlet_Forward2D(x, J = nLevel)
+    arrayLambdas = getDetectionLevels(y, k, nLevel)
+    
+    for i in range(Niter):
+        print("iteration " + str(i+1) + "/" + str(Niter) )
+        (gradC, gradW) = getGradConvol(c, w, H, Htilde, y, nLevel, h)
+        wHalf = w - gamma * gradW
+        c = c - gamma * gradC
+        if  (multiscale == False):
+            w = w + theta  * (softThrd(wHalf, gamma * Lambda) - w)
+        else:
+            w = w + theta  * (softThrdMultiScale(wHalf, gamma * arrayLambdas) - w)
+        print("error = ", error(xStar, tp1.Starlet_Backward2D(c,w)))
+    res = tp1.Starlet_Backward2D(c, w)
+    return res
+
+
+Niter = 100
+FBreconst = forwardBackwardConvol(Niter, x0, H, y, nLevel, k*Lambda, multiscale=True)
 
 ################################################################
 #on plotte les résultats
