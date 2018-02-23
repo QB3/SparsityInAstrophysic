@@ -166,19 +166,42 @@ scipy.misc.imsave(path, H)
 #on va convoluer
 # on crée un fonction de convoultion rapide
 
+
+
+def getHtilde(H):
+    n = H.shape[0]
+    resInt = np.zeros((n,n))
+    res = np.zeros((n,n))
+    for i in range(n):
+        resInt[:, i] = H[:, n-i-1]
+    for i in range(n):
+        res[i,:] = resInt [n-i-1,:]
+    return res
+
+
 def convol(xStar, H):
-    Hfft = np.fft.fft2(H, norm = "ortho")
+    """Hfft = np.fft.fft2(H, norm = "ortho")
     xfft = np.fft.fft2(xStar, norm = "ortho")
     Hxfft = Hfft * xfft
     Hx = np.fft.ifft2(Hxfft, norm = "ortho")
-    #il y a un petit résidu complexe de l'ordre de 10**-13, on le supprime
-    Hx = np.real(Hx) 
+    Hx = np.real(Hx) """
+    #Hx = getHtilde(Hx)
+    #Hx = scipy.signal.convolve2d(xStar, H, mode = "same", boundary = 'symm')
+    #Hx = np.roll(Hx, (-((H.shape[0] - 1)//2), -((H.shape[1] - 1)//2)), axis=(0, 1))
+    from numpy.fft import fft, ifft, fft2, ifft2, fftshift
+    fr = fft2(xStar)
+    fr2 = fft2(np.flipud(np.fliplr(H)))
+    m,n = fr.shape
+    cc = np.real(ifft2(fr*fr2))
+    cc = np.roll(cc, -m//2+1,axis=0)
+    cc = np.roll(cc, -n//2+1,axis=1)
     return Hx
+
 
 #####################################
 # on convolue
 n = xStar.shape[0]
-sigma = 1
+sigma = 200
 Hx = convol(xStar, H)
 plt.figure()
 plt.title('image non convoluée', fontsize=18)
@@ -195,8 +218,8 @@ y = Hx + np.random.normal(0,sigma, (n,n))
 plt.figure()
 plt.title('image convoluée et bruitée', fontsize=18)
 plt.imshow(y, cmap='gray')
-path = 'imagesTP2/simu_sky_concoluee_bruitee.jpg'
-scipy.misc.imsave(path, Hx)
+path = 'imagesTP2/simu_sky_convoluee_bruitee.jpg'
+scipy.misc.imsave(path, y)
 
 #####################################"
 #on implémente gradient on applique le Forward-Backward
@@ -208,20 +231,15 @@ def getGradConvol(c ,w , H, Htilde, y, nLevel, h):
     (gradC, gradW) = tp1.Starlet_Forward2D(gradx, J= nLevel)
     return (gradC, gradW)
 
-
-def getHtilde(H):
-    n = H.shape[0]
-    resInt = np.zeros((n,n))
-    res = np.zeros((n,n))
-    for i in range(n):
-        resInt[:, i] = H[:, n-i-1]
-    for i in range(n):
-        res[i,:] = resInt [n-i-1,:]
-    return res
-
 def getLipConst(H, Htilde):
-    nu = np.fft.fft(H) * np.fft.fft(Htilde)
-    nu= np.max(np.linalg.norm(nu))
+    """nu = np.fft.fft(H) * np.fft.fft(Htilde)
+    nu= np.max(np.linalg.norm(nu))"""
+    from numpy.fft import fft, ifft, fft2, ifft2, fftshift
+    fr = fft2(Htilde)
+    fr2 = fft2(np.flipud(np.fliplr(H)))
+    m,n = fr.shape
+    cc = ifft2(fr*fr2)
+    nu = np.max(np.abs(cc))
     return nu
 
 
@@ -237,14 +255,15 @@ k=3
 Lambda = getSigmaMAD(y)
 print("Lambda =  ", Lambda)
 
-x0 = reconstruction(y, nLevel, k, "softThrd")
 
 def forwardBackwardConvol(Niter, x0, H, y, nLevel, Lambda,  k=3, multiscale = False):
     Htilde = getHtilde(H)
     nu = getLipConst(H, Htilde)
-    gamma =nu/2
-    gamma = 100
-    theta = 10
+    gamma = nu/2
+    #gamma = 1
+    print("gamma = ", gamma)
+    #gamma = 100
+    theta = 1.5
     x = cp.copy(x0)
     (c, w ) = tp1.Starlet_Forward2D(x, J = nLevel)
     arrayLambdas = getDetectionLevels(y, k, nLevel)
@@ -264,6 +283,7 @@ def forwardBackwardConvol(Niter, x0, H, y, nLevel, Lambda,  k=3, multiscale = Fa
 
 
 Niter = 100
+x0 = reconstruction(y, nLevel, k, "softThrd")
 FBreconst = forwardBackwardConvol(Niter, x0, H, y, nLevel, k*Lambda, multiscale=True)
 
 ################################################################
@@ -280,7 +300,7 @@ plt.figure()
 plt.title('image débruitée par softThrd brutal (convolution)', fontsize=18)
 plt.imshow(x0, cmap='gray')
 path = 'imagesTP2/convol_soft_reconst_simu_sky.jpg'
-scipy.misc.imsave(path, softReconst)
+scipy.misc.imsave(path, x0)
 plt.figure()
 plt.title('image débruitée par FB (convolution)', fontsize=18)
 plt.imshow(FBreconst, cmap='gray')
