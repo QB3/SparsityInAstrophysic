@@ -195,13 +195,13 @@ def convol(xStar, H):
     cc = np.real(ifft2(fr*fr2))
     cc = np.roll(cc, -m//2+1,axis=0)
     cc = np.roll(cc, -n//2+1,axis=1)
-    return Hx
+    return cc
 
 
 #####################################
 # on convolue
 n = xStar.shape[0]
-sigma = 200
+sigma = 50
 Hx = convol(xStar, H)
 plt.figure()
 plt.title('image non convoluée', fontsize=18)
@@ -260,10 +260,10 @@ def forwardBackwardConvol(Niter, x0, H, y, nLevel, Lambda,  k=3, multiscale = Fa
     Htilde = getHtilde(H)
     nu = getLipConst(H, Htilde)
     gamma = nu/2
+    gamma = 1
     #gamma = 1
     print("gamma = ", gamma)
-    #gamma = 100
-    theta = 1.5
+    theta = 1
     x = cp.copy(x0)
     (c, w ) = tp1.Starlet_Forward2D(x, J = nLevel)
     arrayLambdas = getDetectionLevels(y, k, nLevel)
@@ -284,7 +284,9 @@ def forwardBackwardConvol(Niter, x0, H, y, nLevel, Lambda,  k=3, multiscale = Fa
 
 Niter = 100
 x0 = reconstruction(y, nLevel, k, "softThrd")
-FBreconst = forwardBackwardConvol(Niter, x0, H, y, nLevel, k*Lambda, multiscale=True)
+boolMultiscale = False
+FBreconst = forwardBackwardConvol(Niter, x0, H, y, nLevel, k*Lambda, multiscale=boolMultiscale)
+
 
 ################################################################
 #on plotte les résultats
@@ -304,7 +306,7 @@ scipy.misc.imsave(path, x0)
 plt.figure()
 plt.title('image débruitée par FB (convolution)', fontsize=18)
 plt.imshow(FBreconst, cmap='gray')
-path = 'imagesTP2/convol_FB_reconst_simu_sky.jpg'
+path = 'imagesTP2/convol_FB_reconst_simu_sky' + str(boolMultiscale) + '.jpg'
 scipy.misc.imsave(path, FBreconst)
 print("erreur xStar y", error(xStar, y))
 print("erreur xStar softReconst", error(xStar, x0))
