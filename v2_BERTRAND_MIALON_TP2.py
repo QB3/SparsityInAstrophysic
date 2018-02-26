@@ -222,8 +222,7 @@ path = 'imagesTP2/simu_sky_convoluee_bruitee.jpg'
 scipy.misc.imsave(path, y)
 
 #####################################"
-#on implémente gradient on applique le Forward-Backward
-
+#on implémente gradient 
 def getGradConvol(c ,w , H, Htilde, y, nLevel, h): 
     x = tp1.Starlet_Backward2D(c, w)
     gradx = convol(x, H) - y
@@ -231,6 +230,7 @@ def getGradConvol(c ,w , H, Htilde, y, nLevel, h):
     (gradC, gradW) = tp1.Starlet_Forward2D(gradx, J= nLevel)
     return (gradC, gradW)
 
+#fonction pour obtenir la constante de lipschitz
 def getLipConst(H, Htilde):
     """nu = np.fft.fft(H) * np.fft.fft(Htilde)
     nu= np.max(np.linalg.norm(nu))"""
@@ -255,7 +255,7 @@ k=3
 Lambda = getSigmaMAD(y)
 print("Lambda =  ", Lambda)
 
-
+#la fonction suivante implémente l'lgorithme forward backwardc pour le problème de convolution
 def forwardBackwardConvol(Niter, x0, H, y, nLevel, Lambda,  k=3, multiscale = False):
     Htilde = getHtilde(H)
     nu = getLipConst(H, Htilde)
@@ -326,7 +326,7 @@ def getMask(p, n):
 
 #on bruite l'image
 n = xStar.shape[0]
-p = np.floor(n**2/3)
+p = int(np.floor(n**2/3))
 mask = getMask(p, n)
 sigma = 50
 y = mask * (xStar + np.random.normal(0, sigma, (n,n)))
@@ -406,3 +406,50 @@ scipy.misc.imsave(path, FBreconst)
 print("erreur xStar y", error(xStar, y))
 print("erreur xStar softReconst", error(xStar, x0))
 print("erreur xStar FB", error(xStar, FBreconst))
+
+
+#########################################################################################"
+#avec le probmlème posé en x
+
+FBSinx = tp1.FBS_Inpainting(y, mask)
+
+plt.figure()
+plt.title('image non bruitée', fontsize=18)
+plt.imshow(xStar, cmap='gray')
+plt.figure()
+plt.title('image bruitée (inpainting)', fontsize=18)
+plt.imshow(y, cmap='gray')
+path = 'imagesTP2/impainting_simu_sky.jpg'
+scipy.misc.imsave(path, y)
+plt.figure()
+plt.title('image débruitée par softThrd brutal (inpainting)', fontsize=18)
+plt.imshow(x0, cmap='gray')
+path = 'imagesTP2/impainting_soft_reconst_simu_sky.jpg'
+scipy.misc.imsave(path, softReconst)
+plt.figure()
+plt.title('image débruitée par FB en x (inpainting)', fontsize=18)
+plt.imshow(FBSinx, cmap='gray')
+path = 'imagesTP2/impainting_FB_in_x_reconst_simu_sky' + '.jpg'
+scipy.misc.imsave(path, FBSinx)
+print("erreur xStar y", error(xStar, y))
+print("erreur xStar softReconst", error(xStar, x0))
+print("erreur xStar FB", error(xStar, FBSinx))
+
+listeRation = [1/5, 2/5, 1/2, 3/5, 4/5]
+listFBSinX = []
+
+for ratio in listeRation:
+    p = int(np.floor(n**2 * ratio))
+    mask = getMask(p, n)
+    sigma = 50
+    y = mask * (xStar + np.random.normal(0, sigma, (n,n)))
+    FBSinx = tp1.FBS_Inpainting(y, mask)
+    listFBSinX.append(FBSinx)
+    
+for i in range(5):
+    im = listFBSinX[i]
+    plt.figure()
+    plt.title('image débruitée par FB en x (inpainting)', fontsize=18)
+    plt.imshow(im, cmap='gray')
+    path = 'imagesTP2/impainting_FB_in_x_reconst_simu_sky_' + str(i) + '_.jpg'
+    scipy.misc.imsave(path,im)
