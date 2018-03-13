@@ -84,11 +84,13 @@ print("ration Sica[0,:] / S[1,:] = ", Sica[0,:] / S[1,:])
 print("ration Aica[1,:] / A[0,:] = ", A[:,0]/Aica[:,1]) 
 print("ration Aica[0,:] / A[1,:] = ", A[:,1]/Aica[:,0])
 #on observe que S et Sica sont presque identique à une permutation près et un facteur d'chelle 0.11
+#la fonction bss eval peut faire tout ça 
+
 
 ####################################################################"
 #evaluate the performance whane the conditionning number of the mmixing matrix varies
 listCdA = [1,2,10,50,100] 
-nSample = 10000
+nSample = 1000
 
 for CdA in listCdA:
     counter = 0
@@ -100,23 +102,17 @@ for CdA in listCdA:
     
 
 ####################################################################
-#ChandraSims
+#Chandra 
+#chargement des données 2
+import scipy.io
+mat = scipy.io.loadmat('chandra.mat')
 
-#on charge les données
-from astropy.io import fits
-hdul = fits.open('AstroImages.fits')
-hdul.info()
-xStar = hdul[0].data
-plt.figure()
-plt.imshow(xStar[0,:,:], cmap ="gray")
-plt.figure()
-plt.imshow(xStar[1,:,:], cmap ="gray")
-plt.figure()
-plt.imshow(xStar[2,:,:], cmap ="gray")
-
-X = xStar.reshape((3,256*256))
+A0 = mat['A0']
+S0 = mat['S0']
+X = np.dot(A0, S0)
 n= 8
 Aica, Sica = bss.Perform_FastICA(X, n)
+bss.Eval_BSS(A0,S0,Aica,Sica)
 #on obtient un warning, le nombre de composant est trop large
 
 ############################################################################################
@@ -131,6 +127,12 @@ X, A, S = bss.GenerateMixture(n = n, m=m, SType = SType)
 Agmca,Sgmca,PinvAgmca = bss.Perform_GMCA(X, n)
 print("bss.Eval = ", bss.Eval_BSS(A, S, Agmca, Sgmca))
 #Could you comment on the results ??
+
+#question : pourquoi on a ça ?
+plt.figure()
+plt.scatter(Sgmca[0], Sgmca[1])
+#la solution de GMCA est "mauavaise" et renvoie qqchose dans la boule L1
+
 
 #GMCA sparse sources
 n = 2
@@ -162,5 +164,56 @@ for SNR in listSNR:
 
 
 
+#####################################################################################################"
+######################################################################################################
+#implémentation de PALM
+
+def getGrad1(X, A, S):
+    return np.dot(A.T, np.dot(A, S)-X) 
+
+def getGrad2(X, A, S):
+    return np.dot(np.dot(A, S)-X, S.T)
+
+def getLip1(A):
+    return np.linalg.norm(np.dot(A.T, A), ord = 'fro')
+
+def getLip2(S):
+    return np.linalg.norm(np.dot(S, S.T), ord = 'fro')
+
+def softThrd(x, gamma):
+    return np.sign(x) * np.maximum(np.abs(x) - gamma, 0)
+
+import scipy.io
+mat = scipy.io.loadmat('chandra.mat')
+
+Areal = mat['A0']
+Sreal = mat['S0']
+X = np.dot(Areal, Sreal)
+X = X.reshape(X.shape[0], int(np.sqrt(X.shape[1])), int(np.sqrt(X.shape[1])))
+
+dimA = Areal.shape
+A0 = np.zeros(dimA)
+dimS = Sreal.shape
+S0 = np.zeros(dimS)
+
+import Starlet2D as tp1
 
 
+#attention il faut imposer des contraintes supplémentaires 
+#A \in O_b : chacune des colonnes de A est normalisée en norme L2
+#il faut donc rajouter un terme de contrainte : (d'où les 3 termes dans PALM)
+def palm(nIter, X, A0, S0, gamma1 = 2, gamma2 = 2):
+    import copy as cp    
+    A = cp.copy(A0)
+    S = cp.copy(S0)
+    for i in range(nIter):
+        ci = gamma1 * getLip2(S)
+        A = A - 1/ci * getGrad1(X, A, S)
+        di = gamma2 * getLip2(A)
+        S = S - 1/di * getGrad2(X, A, S)
+        #
+        S = softThrd(S, di)
+        print("evaluation bss = ", bss.Eval_BSS(Areal, Sreal, A, S))
+    return A, S
+    
+mat = scipy.io.loadmat('Noise_single_simulation.mat')
