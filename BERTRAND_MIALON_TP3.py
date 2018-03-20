@@ -60,9 +60,6 @@ pca.fit(X.T)
 print("explained variance ratio = ", pca.explained_variance_ratio_)  
 print("singulatr values", pca.singular_values_)  
 
-#Does PCA works in this case ?
-# ça veut dire quoi la PCA marche ? à checker
-
 #########################################################################################
 ##########################################################################################
 # Independent component analysis
@@ -129,8 +126,10 @@ print("bss.Eval = ", bss.Eval_BSS(A, S, Agmca, Sgmca))
 #Could you comment on the results ??
 
 #question : pourquoi on a ça ?
-plt.figure()
+fig = plt.figure()
 plt.scatter(Sgmca[0], Sgmca[1])
+plt.gcf().subplots_adjust(bottom=0.15)
+fig.savefig('ImagesTP3/GMCAunifData.png')
 #la solution de GMCA est "mauavaise" et renvoie qqchose dans la boule L1
 
 
@@ -250,7 +249,7 @@ dimA = Areal.shape
 A0 = np.random.normal(0,1,dimA)
 dimS = Sreal.shape
 S0 = np.random.normal(0,1, dimS)
-nIter = 100
+nIter = 1000
 
 A, S = palm(nIter, X, A0, S0, gamma1=1, gamma2=1)
 A0=A
