@@ -3,6 +3,7 @@ import pyBSS as bss
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 
+
 #################################################################
 #whitening data
 def whitening(cov):
@@ -165,7 +166,28 @@ for SNR in listSNR:
 
 #####################################################################################################"
 ######################################################################################################
+
+
+#on charge Chandra 
+import scipy.io
+mat = scipy.io.loadmat('chandra.mat')
+Areal = mat['A0']
+Sreal = mat['S0']
+X = np.dot(Areal, Sreal)
+n=8
+
+#on applique GMCA à Chandra
+
+counter = 0
+nSample = 100
+for i in range(nSample):
+    Agmca,Sgmca,PinvAgmca = bss.Perform_GMCA(X, n)
+    counter = counter + bss.Eval_BSS(Areal, Sreal, Agmca, Sgmca)
+print(" mean bss.Eval, nSample = ", nSample, " : mean bss.Eval", counter/nSample)
+
+
 #implémentation de PALM
+import Starlet2D as tp1
 
 def getGrad1(X, A, S):
     return np.dot(A.T, np.dot(A, S)-X) 
@@ -178,15 +200,6 @@ def getLip1(A):
 
 def getLip2(S):
     return np.linalg.norm(np.dot(S, S.T), ord = 'fro')
-
-import scipy.io
-mat = scipy.io.loadmat('chandra.mat')
-
-Areal = mat['A0']
-Sreal = mat['S0']
-X = np.dot(Areal, Sreal)
-
-import Starlet2D as tp1
 
 
 def softThrd(x, gamma):
@@ -227,7 +240,7 @@ def projOnBall(A):
 #attention il faut imposer des contraintes supplémentaires 
 #A \in O_b : chacune des colonnes de A est normalisée en norme L2
 #il faut donc rajouter un terme de contrainte : (d'où les 3 termes dans PALM)
-def palm(nIter, X, A0, S0, gamma1 = 2, gamma2 = 2):
+def palm(nIter, X, A0, S0, gamma1 = 2, gamma2 = 2, Lambda = 1):
     import copy as cp    
     A = cp.copy(A0)
     S = cp.copy(S0)
@@ -239,7 +252,7 @@ def palm(nIter, X, A0, S0, gamma1 = 2, gamma2 = 2):
         di = gamma1 * getLip2(A)
         S = S - 1/di * getGrad1(X, A, S)
         cMultidim, wMultidim = Starlet_Forward2D_Multidim(S, J=2)
-        wMultidim = softThrd(wMultidim, di)
+        wMultidim = softThrd(wMultidim, Lambda * di)
         S = Starlet_Backward2D_Multidim( cMultidim, wMultidim)
         print("evaluation bss = ", bss.Eval_BSS(Areal, Sreal, A, S))
     return A, S
@@ -251,6 +264,7 @@ dimS = Sreal.shape
 S0 = np.random.normal(0,1, dimS)
 nIter = 1000
 
-A, S = palm(nIter, X, A0, S0, gamma1=1, gamma2=1)
+A, S = palm(nIter, X, A0, S0, gamma1=1, gamma2=1, Lambda= 0.01)
 A0=A
 S0= S
+
