@@ -143,8 +143,10 @@ def display_source_separation(data):
     for model in models:
         if model == 'gmca':
             A, S, PinvA = perform_source_separation(data, model)
+            print(A)
         elif model == 'fica':
             A, S = perform_source_separation(data, model)
+            print(A)
         else:
             raise('Wrong method')
         for k in range(2):
@@ -152,7 +154,16 @@ def display_source_separation(data):
             plt.show()
     return
 
+def check_A(A):
+    x = np.arange(0, len(A))
+    for k in range(2):
+        plt.scatter(x,np.log(np.abs((A[:,k]))))
+    plt.show()
+    return
+
 if __name__ == '__main__':
 
     data = read_images(path_to_pictures)
-    display_source_separation(data)
+    #display_source_separation(data)
+    A, S = perform_source_separation(data, 'fica')
+    check_A(A)
