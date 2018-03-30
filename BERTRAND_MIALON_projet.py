@@ -124,8 +124,22 @@ def perform_source_separation(data, method):
     n'utilise pas le prior que l'on a sur la structure de A (exponentielle avec un facteur négatif pour une channel
     et un facteur positif pour l'autre.
     '''
-    
-    if method == 'fica':
+
+    prior = [[20, 0],
+             [18, 2],
+             [16, 4],
+             [14, 6],
+             [12, 8],
+             [10, 10],
+             [8, 12],
+             [6, 14],
+             [4, 16],
+             [200000000000000000, 18]]
+
+    if method == 'prior_fica':
+        A, S = bss.alt_Perform_FastICA(data, 2, prior)
+        return A,S
+    elif method == 'fica':
         A, S = bss.Perform_FastICA(data, 2)
         return A,S
     elif method == 'gmca':
@@ -143,10 +157,8 @@ def display_source_separation(data):
     for model in models:
         if model == 'gmca':
             A, S, PinvA = perform_source_separation(data, model)
-            print(A)
         elif model == 'fica':
             A, S = perform_source_separation(data, model)
-            print(A)
         else:
             raise('Wrong method')
         for k in range(2):
@@ -164,6 +176,7 @@ def check_A(A):
 if __name__ == '__main__':
 
     data = read_images(path_to_pictures)
-    #display_source_separation(data)
-    A, S = perform_source_separation(data, 'fica')
+    print(data.shape)
+    A, S = perform_source_separation(data, 'prior_fica')
+    print(A)
     check_A(A)
