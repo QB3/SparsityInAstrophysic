@@ -10,10 +10,9 @@ import copy as cp
 import matplotlib.pyplot as plt
 from numpy.fft import fft, ifft, fft2, ifft2, fftshift
 
-#import Starlet2D as tp1
-#import BERTRAND_MIALON_tools_projet as to
-#import pyBSS as bss
-from PIL import Image
+import Starlet2D as tp1
+import BERTRAND_MIALON_tools_projet as to
+import pyBSS as bss
 
 path_to_pictures = '/Users/gregoire/Desktop/mva/parcimonie astrophysique/data'
 
@@ -114,24 +113,46 @@ def read_images(path):
 
     for i in range(10):
         impath = path + '/%d.png' % i
-        images.append(plt.imread(impath))
+        images.append(plt.imread(impath).ravel())
 
-    return images
-
-data = read_images(path_to_pictures)
+    return np.stack(images)
 
 #séparation des sources avec FICA ou GMCA
 def perform_source_separation(data, method):
     '''
     Comme précisé dans l'énoncé, on suppose que deux sources sont responsables des signaux mesurés. Cette méthode
-    n'utilise pas le prior que l'on a sur la structure de A
+    n'utilise pas le prior que l'on a sur la structure de A (exponentielle avec un facteur négatif pour une channel
+    et un facteur positif pour l'autre.
     '''
     
     if method == 'fica':
         A, S = bss.Perform_FastICA(data, 2)
+        return A,S
     elif method == 'gmca':
-        A, S = bss.Perform_GMCA(data, 2)
+        A, S, PinvA = bss.Perform_GMCA(data, 2)
+        return A,S, PinvA
     else:
         raise('Wrong method, please choose either fica or gmca')
 
-    return A,S
+def display_source_separation(data):
+    '''
+    This function displays the two separated sources for both FICA and GMCA.
+    '''
+
+    models = ['fica', 'gmca']
+    for model in models:
+        if model == 'gmca':
+            A, S, PinvA = perform_source_separation(data, model)
+        elif model == 'fica':
+            A, S = perform_source_separation(data, model)
+        else:
+            raise('Wrong method')
+        for k in range(2):
+            plt.imshow(S[k].reshape(256, 256))
+            plt.show()
+    return
+
+if __name__ == '__main__':
+
+    data = read_images(path_to_pictures)
+    display_source_separation(data)
