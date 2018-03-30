@@ -10,37 +10,45 @@ import copy as cp
 import matplotlib.pyplot as plt
 from numpy.fft import fft, ifft, fft2, ifft2, fftshift
 
-import Starlet2D as tp1
-import BERTRAND_MIALON_tools_projet as to
-import pyBSS as bss
+#import Starlet2D as tp1
+#import BERTRAND_MIALON_tools_projet as to
+#import pyBSS as bss
+from PIL import Image
 
+path_to_pictures = '/Users/gregoire/Desktop/mva/parcimonie astrophysique/data'
 
 ####################################################################################################################""
 #on charge les données
 import scipy.io
-mat = scipy.io.loadmat('Fourier_Measurements.mat')
-y = mat['B']
-mat = scipy.io.loadmat('Fourier_Sampling.mat')
-M = mat['mask']
-mat = scipy.io.loadmat('Noise_single_simulation.mat')
-noise = mat['noise2']
-mat =  scipy.io.loadmat('Input_FRG.mat')
-Sreal = mat['frg_input']
 
-plt.figure()
-plt.title('source originelle 1', fontsize=18)
-plt.imshow(Sreal[:,:,0], cmap='gray')
+def load_data():
 
-plt.figure()
-plt.title('source originelle 2', fontsize=18)
-plt.imshow(Sreal[:,:,1], cmap='gray')
+    mat = scipy.io.loadmat('Fourier_Measurements.mat')
+    y = mat['B']
+    mat = scipy.io.loadmat('Fourier_Sampling.mat')
+    M = mat['mask']
+    mat = scipy.io.loadmat('Noise_single_simulation.mat')
+    noise = mat['noise2']
+    mat =  scipy.io.loadmat('Input_FRG.mat')
+    Sreal = mat['frg_input']
 
-plt.figure()
-plt.title('masque', fontsize=18)
-plt.imshow(M[:,:,5], cmap='gray')
+    plt.figure()
+    plt.title('source originelle 1', fontsize=18)
+    plt.imshow(Sreal[:,:,0], cmap='gray')
+
+    plt.figure()
+    plt.title('source originelle 2', fontsize=18)
+    plt.imshow(Sreal[:,:,1], cmap='gray')
+
+    plt.figure()
+    plt.title('masque', fontsize=18)
+    plt.imshow(M[:,:,5], cmap='gray')
+
+    return
 
 
 ####################################################################################################################"
+
 #modèle de synthèse
 def getGradf(c,w, mask, y, nLevel):
     x = tp1.Starlet_Backward2D(c, w)
@@ -78,21 +86,52 @@ def FBS(Niter, x0, mask, y,noise, nLevel, Lambda, k=3, multiscale = False):
 #####################################################################################################################
 #débruitage canal par canal
 Niter = 200
-x0 = np.unif(0, 10, (256,256))
+#x0 = np.unif(0, 10, (256,256))
 nLevel = 3
 Lambda = 1
 boolMultiscale = True
 
 nObs = 10
-for i in range(nObs):
-    print("canal = ", str(i))
-    y0 =y[:,:,i] 
-    M0 = M[:,:,i]
-    noise0 = noise[:,:,i]
-    FBreconst = FBS(Niter, x0, M0, y0, noise0, nLevel, Lambda, multiscale=boolMultiscale)
-    plt.figure()
-    plt.title('image débruitée par FB', fontsize=18)
-    plt.imshow(FBreconst, cmap='gray')
-    path = 'ImagesProjet/synthesis_model_FBS_channel_' + str(i)  + "_" + str(Niter) + '.jpg'
-    scipy.misc.imsave(path, FBreconst)
+
+def function():
+    for i in range(nObs):
+        print("canal = ", str(i))
+        y0 =y[:,:,i]
+        M0 = M[:,:,i]
+        noise0 = noise[:,:,i]
+        FBreconst = FBS(Niter, x0, M0, y0, noise0, nLevel, Lambda, multiscale=boolMultiscale)
+        plt.figure()
+        plt.title('image débruitée par FB', fontsize=18)
+        plt.imshow(FBreconst, cmap='gray')
+        path = 'ImagesProjet/synthesis_model_FBS_channel_' + str(i)  + "_" + str(Niter) + '.jpg'
+        scipy.misc.imsave(path, FBreconst)
+
+    return
+
+def read_images(path):
+
+    images = []
+
+    for i in range(10):
+        impath = path + '/%d.png' % i
+        images.append(plt.imread(impath))
+
+    return images
+
+data = read_images(path_to_pictures)
+
+#séparation des sources avec FICA ou GMCA
+def perform_source_separation(data, method):
+    '''
+    Comme précisé dans l'énoncé, on suppose que deux sources sont responsables des signaux mesurés. Cette méthode
+    n'utilise pas le prior que l'on a sur la structure de A
+    '''
     
+    if method == 'fica':
+        A, S = bss.Perform_FastICA(data, 2)
+    elif method == 'gmca':
+        A, S = bss.Perform_GMCA(data, 2)
+    else:
+        raise('Wrong method, please choose either fica or gmca')
+
+    return A,S
