@@ -125,7 +125,7 @@ def perform_source_separation(data, method):
     et un facteur positif pour l'autre.
     '''
 
-    prior = [[20, 0],
+    prior = np.array([[20, 0],
              [18, 2],
              [16, 4],
              [14, 6],
@@ -134,7 +134,7 @@ def perform_source_separation(data, method):
              [8, 12],
              [6, 14],
              [4, 16],
-             [200000000000000000, 18]]
+             [2, 18]])
 
     if method == 'prior_fica':
         A, S = bss.alt_Perform_FastICA(data, 2, prior)
@@ -144,32 +144,33 @@ def perform_source_separation(data, method):
         return A,S
     elif method == 'gmca':
         A, S, PinvA = bss.Perform_GMCA(data, 2)
-        return A,S, PinvA
+        return A,S
     else:
         raise('Wrong method, please choose either fica or gmca')
 
-def display_source_separation(data):
+def display_source_separation(data, method):
     '''
     This function displays the two separated sources for both FICA and GMCA.
     '''
 
-    models = ['fica', 'gmca']
-    for model in models:
-        if model == 'gmca':
-            A, S, PinvA = perform_source_separation(data, model)
-        elif model == 'fica':
-            A, S = perform_source_separation(data, model)
-        else:
-            raise('Wrong method')
-        for k in range(2):
-            plt.imshow(S[k].reshape(256, 256))
-            plt.show()
+    if method == 'gmca':
+        A, S = perform_source_separation(data, method)
+    elif method == 'fica':
+        A, S = perform_source_separation(data, method)
+    else:
+        raise('Wrong method')
+    for k in range(2):
+        plt.imshow(S[k].reshape(256, 256), cmap = 'gray')
+        path = path_to_pictures + '/' + str(k) + "_" + str(method) + "_without_prior" + '.jpg'
+        scipy.misc.imsave(path, S[k].reshape(256, 256))
+        plt.show()
+
     return
 
 def check_A(A):
     x = np.arange(0, len(A))
     for k in range(2):
-        plt.scatter(x,np.log(np.abs((A[:,k]))))
+        plt.plot(x,np.log(np.abs((A[:,k]))))
     plt.show()
     return
 
@@ -177,6 +178,7 @@ if __name__ == '__main__':
 
     data = read_images(path_to_pictures)
     print(data.shape)
-    A, S = perform_source_separation(data, 'prior_fica')
+    A, S = perform_source_separation(data, 'fica')
     print(A)
     check_A(A)
+    #display_source_separation(data, 'gmca')
