@@ -7,6 +7,8 @@ Created on Thu Mar 22 10:49:34 2018
 """
 import numpy as np
 import copy as cp  
+import scipy.io
+import matplotlib.pyplot as plt
 import Starlet2D as tp1
 
 #########################################################################################################################
@@ -43,3 +45,28 @@ def getDetectionLevels(y, k, nbLevels):
 
 def error(xStar, xHat):
     return np.linalg.norm(xStar - xHat) / np.linalg.norm(xStar)
+
+def load_data():
+
+    mat = scipy.io.loadmat('Fourier_Measurements.mat')
+    y = mat['B']
+    mat = scipy.io.loadmat('Fourier_Sampling.mat')
+    M = mat['mask']
+    mat = scipy.io.loadmat('Noise_single_simulation.mat')
+    noise = mat['noise2']
+    mat =  scipy.io.loadmat('Input_FRG.mat')
+    Sreal = mat['frg_input']
+
+    plt.figure()
+    plt.title('source originelle 1', fontsize=18)
+    plt.imshow(Sreal[:,:,0], cmap='gray')
+
+    plt.figure()
+    plt.title('source originelle 2', fontsize=18)
+    plt.imshow(Sreal[:,:,1], cmap='gray')
+
+    plt.figure()
+    plt.title('masque', fontsize=18)
+    plt.imshow(M[:,:,5], cmap='gray')
+
+    return y, M, noise
